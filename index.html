@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Familien-Haushaltsplan Pro</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="light">
+    
+    <nav class="top-nav">
+        <div class="logo">🏠 Haushalts-Manager</div>
+        <button id="theme-toggle" class="theme-btn" aria-label="Toggle Dark Mode">🌙 Dark Mode</button>
+    </nav>
+
+    <div id="login-container" class="auth-wrapper">
+        <div class="card auth-card">
+            <h1>Anmelden</h1>
+            <p>Willkommen im Familien-System</p>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="username">Benutzername</label>
+                    <input type="text" id="username" placeholder="Dein Name" required>
+                </div>
+                <div class="input-group">
+                    <label for="password">Passwort</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-primary">Einloggen</button>
+            </form>
+            <div id="login-error" class="error-msg hidden">Login fehlgeschlagen. Bitte prüfe deine Daten.</div>
+        </div>
+    </div>
+
+    <div id="dashboard-container" class="main-layout hidden">
+        
+        <aside class="sidebar">
+            <div class="user-profile">
+                <div class="avatar" id="user-avatar">?</div>
+                <h3 id="display-name">Nutzername</h3>
+                <span id="user-role-badge" class="badge">Rolle</span>
+            </div>
+            <nav class="side-nav">
+                <button class="nav-item active" data-target="view-home">🏠 Übersicht</button>
+                <button class="nav-item" data-target="view-stats">📊 Statistiken</button>
+                <button class="nav-item" data-target="view-ranking">🏆 Ranking</button>
+                <button id="admin-nav-item" class="nav-item hidden" data-target="view-admin">⚙️ Verwaltung</button>
+            </nav>
+            <button id="logout-btn" class="btn-secondary logout-btn">Abmelden</button>
+        </aside>
+
+        <main class="content-area">
+            
+            <div id="alert-banner" class="alert-box hidden">
+                <span id="alert-message"></span>
+            </div>
+
+            <section id="view-home" class="view-section">
+                <div class="section-header">
+                    <h2>Hausarbeit eintragen</h2>
+                    <div class="weekly-progress">
+                        <span>Wochenziel: <strong id="pts-current">0</strong> / <span id="pts-goal">0</span> Pkt.</span>
+                        <div class="progress-bar"><div id="progress-fill" style="width: 0%"></div></div>
+                    </div>
+                </div>
+
+                <div class="chores-container">
+                    <h3>Schnellauswahl (1-2 Punkte)</h3>
+                    <div id="list-quick-chores" class="chores-grid">
+                        </div>
+
+                    <h3>Anspruchsvolle Aufgaben (3-5 Punkte)</h3>
+                    <div id="list-heavy-chores" class="chores-grid">
+                        </div>
+                </div>
+
+                <div class="recent-history">
+                    <h3>Kürzlich erledigt</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Aufgabe</th>
+                                <th>Punkte</th>
+                                <th>Zeitpunkt</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="personal-history-body">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="view-stats" class="view-section hidden">
+                <h2>Detaillierte Auswertung</h2>
+                <div class="stats-grid">
+                    <div class="card stat-card">
+                        <h4>Erfüllungsquote</h4>
+                        <p>Ziel erreicht in <span id="weeks-fulfilled-count">0</span> von 4 Wochen</p>
+                    </div>
+                    <div class="card stat-card">
+                        <h4>Häufigste Aufgabe</h4>
+                        <p id="top-chore-name">-</p>
+                    </div>
+                </div>
+                
+                <div class="full-log">
+                    <h3>Genaue Protokollierung (Zeit & Datum)</h3>
+                    <div class="filter-bar">
+                        <select id="filter-user-stats">
+                            <option value="all">Alle Familienmitglieder</option>
+                        </select>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nutzer</th>
+                                <th>Aufgabe</th>
+                                <th>Datum</th>
+                                <th>Uhrzeit</th>
+                                <th>Punkte</th>
+                            </tr>
+                        </thead>
+                        <tbody id="global-stats-body">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="view-ranking" class="view-section hidden">
+                <h2>Bestenlisten</h2>
+                <div class="ranking-tabs">
+                    <button class="tab-btn active" data-range="month">Dieser Monat</button>
+                    <button class="tab-btn" data-range="alltime">Insgesamt</button>
+                </div>
+                <div class="ranking-container">
+                    <ol id="leaderboard-list" class="leaderboard">
+                        </ol>
+                </div>
+            </section>
+
+            <section id="view-admin" class="view-section hidden">
+                <h2>Verwaltung & Kontrolle</h2>
+                
+                <div class="admin-grid">
+                    <div class="card admin-card">
+                        <h3>Konten verwalten</h3>
+                        <form id="admin-user-form">
+                            <input type="text" id="adm-username" placeholder="Name" required>
+                            <input type="password" id="adm-password" placeholder="Passwort ändern/festlegen">
+                            <select id="adm-role">
+                                <option value="child">Kind (mit Punkt-Limit)</option>
+                                <option value="adult">Erwachsener (Verwalter)</option>
+                            </select>
+                            <label>Wochenziel (Punkte):</label>
+                            <input type="number" id="adm-quota" value="15">
+                            <label>Konsequenz bei Zielverfehlung:</label>
+                            <textarea id="adm-penalty" placeholder="z.B. -1 Std. Handyzeit pro Woche"></textarea>
+                            <button type="submit" class="btn-primary">Konto Speichern</button>
+                        </form>
+                    </div>
+
+                    <div class="card admin-card">
+                        <h3>Hausarbeiten definieren</h3>
+                        <form id="admin-chore-form">
+                            <input type="text" id="chore-name" placeholder="Name der Arbeit" required>
+                            <select id="chore-points">
+                                <option value="1">1 Punkt</option>
+                                <option value="2">2 Punkte</option>
+                                <option value="3">3 Punkte</option>
+                                <option value="4">4 Punkte</option>
+                                <option value="5">5 Punkte</option>
+                            </select>
+                            <button type="submit" class="btn-secondary">Hinzufügen</button>
+                        </form>
+                        <ul id="admin-chore-list" class="settings-list"></ul>
+                    </div>
+                </div>
+
+                <div class="admin-global-log">
+                    <h3>Alle erledigten Aufgaben (Verwalter-Ansicht)</h3>
+                    <p>Hier kannst du Einträge anderer löschen, falls geschummelt wurde.</p>
+                    <table class="data-table">
+                        <tbody id="admin-history-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
