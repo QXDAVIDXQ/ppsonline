@@ -4,14 +4,23 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, on
 import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // HIER DEINE FIREBASE DATEN EINTRAGEN:
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "DEIN_API_KEY",
-    authDomain: "dein-projekt.firebaseapp.com",
-    projectId: "dein-projekt",
-    storageBucket: "dein-projekt.appspot.com",
-    messagingSenderId: "DEINE_ID",
-    appId: "DEINE_APP_ID"
+  apiKey: "AIzaSyDJyPP0XNh4SZxfT4EWZQPX2jtK-8M0tqU",
+  authDomain: "ppsonline-648ba.firebaseapp.com",
+  projectId: "ppsonline-648ba",
+  storageBucket: "ppsonline-648ba.firebasestorage.app",
+  messagingSenderId: "739532566067",
+  appId: "1:739532566067:web:4ec1c1705f1344b9e73d46"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
