@@ -80,6 +80,9 @@
                         </select>
                         <button type="submit" class="btn-primary mt-10">Speichern</button>
                     </form>
+                    
+                    <h4 class="mt-30">Bestehende Aufgaben</h4>
+                    <ul id="dev-chore-list" class="leaderboard mt-10"></ul>
                 </div>
             </div>
         </main>
@@ -136,9 +139,16 @@
             </section>
 
             <section id="view-admin" class="view-section hidden">
-                <h2>Familien-Protokoll</h2>
-                <p class="text-muted">Hier kannst du als Verwalter fälschlich eingetragene Aufgaben von allen löschen.</p>
+                <h2>Verwaltung & Kontrolle</h2>
+                
+                <div class="card mb-20">
+                    <h3>👧👦 Kinder-Limits verwalten</h3>
+                    <div id="admin-kids-list">
+                        </div>
+                </div>
+
                 <div class="card mt-10">
+                    <h3>Familien-Protokoll (Löschen)</h3>
                     <table class="data-table">
                         <tbody id="admin-history-body"></tbody>
                     </table>
