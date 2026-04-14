@@ -1,9 +1,8 @@
 // --- 1. FIREBASE INITIALISIERUNG ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-// Deine Firebase-Konfiguration
 const firebaseConfig = {
   apiKey: "AIzaSyDJyPP0XNh4SZxfT4EWZQPX2jtK-8M0tqU",
   authDomain: "ppsonline-648ba.firebaseapp.com",
@@ -20,7 +19,7 @@ const db = getFirestore(app);
 let currentUserData = null;
 const FAKE_DOMAIN = "@familiensystem.local";
 
-// --- KALENDER LOGIK (Wochen- und Monatsberechnung) ---
+// --- KALENDER LOGIK ---
 function getISOWeekInfo(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;
@@ -29,7 +28,6 @@ function getISOWeekInfo(date) {
     const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     return { year: d.getUTCFullYear(), week: weekNo };
 }
-
 function getBillingMonth(date) {
     const d = new Date(date);
     const day = d.getDay();
@@ -37,7 +35,6 @@ function getBillingMonth(date) {
     const sunday = new Date(d.setDate(d.getDate() + diffToSunday));
     return `${sunday.getFullYear()}-${(sunday.getMonth() + 1).toString().padStart(2, '0')}`;
 }
-
 const currentDate = new Date();
 const currentWeekString = `${getISOWeekInfo(currentDate).year}-W${getISOWeekInfo(currentDate).week.toString().padStart(2, '0')}`;
 const currentBillingMonth = getBillingMonth(currentDate);
@@ -48,42 +45,38 @@ const devLoginContainer = document.getElementById('dev-login-container');
 const devDashboard = document.getElementById('dev-dashboard');
 const dashboardContainer = document.getElementById('dashboard-container');
 
-// Dark Mode Toggle
 document.getElementById('theme-toggle').addEventListener('click', () => {
     const isDark = document.body.getAttribute('data-theme') === 'dark';
     document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
 });
 
-// --- ENTWICKLER ZUGANG LOGIK ---
+// --- ENTWICKLER ZUGANG ---
 document.getElementById('btn-show-dev-login').addEventListener('click', () => {
     loginContainer.classList.add('hidden');
     devLoginContainer.classList.remove('hidden');
 });
-
 document.getElementById('btn-cancel-dev').addEventListener('click', () => {
     devLoginContainer.classList.add('hidden');
     loginContainer.classList.remove('hidden');
     document.getElementById('dev-login-error').classList.add('hidden');
 });
-
 document.getElementById('dev-login-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    // Das festgelegte Passwort für den Entwickler-Zugang
     if (document.getElementById('dev-password').value === 'ppsgeheim') {
         devLoginContainer.classList.add('hidden');
         devDashboard.classList.remove('hidden');
         document.getElementById('dev-password').value = '';
+        loadDevChores(); // Aufgaben für Entwickler laden
     } else {
         document.getElementById('dev-login-error').classList.remove('hidden');
     }
 });
-
 document.getElementById('btn-exit-dev').addEventListener('click', () => {
     devDashboard.classList.add('hidden');
     loginContainer.classList.remove('hidden');
 });
 
-// --- AUTHENTIFIZIERUNG & LOGIN ---
+// --- LOGIN ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -99,7 +92,6 @@ onAuthStateChanged(auth, async (user) => {
         loginContainer.classList.remove('hidden');
     }
 });
-
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value.trim().toLowerCase();
@@ -111,10 +103,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         document.getElementById('login-error').classList.remove('hidden');
     }
 });
-
 document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
-// --- DASHBOARD STEUERUNG ---
+// --- DASHBOARD ---
 async function initDashboard() {
     loginContainer.classList.add('hidden');
     dashboardContainer.classList.remove('hidden');
@@ -123,7 +114,6 @@ async function initDashboard() {
     document.getElementById('user-avatar').innerText = currentUserData.username.charAt(0).toUpperCase();
     document.getElementById('user-role-badge').innerText = currentUserData.role === 'adult' ? 'Verwalter' : 'Kind';
     
-    // Verwalter-Funktionen im normalen Dashboard anzeigen/verstecken
     if(currentUserData.role === 'adult') {
         document.getElementById('admin-nav-item').classList.remove('hidden');
     } else {
@@ -134,7 +124,6 @@ async function initDashboard() {
     await loadStats(); 
 }
 
-// Navigation innerhalb des Dashboards
 document.querySelectorAll('.side-nav .nav-item').forEach(btn => {
     btn.addEventListener('click', (e) => {
         document.querySelectorAll('.side-nav .nav-item').forEach(b => b.classList.remove('active'));
@@ -143,11 +132,14 @@ document.querySelectorAll('.side-nav .nav-item').forEach(btn => {
         document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
         document.getElementById(targetId).classList.remove('hidden');
         
-        if(targetId === 'view-admin') loadAdminHistory();
+        if(targetId === 'view-admin') {
+            loadAdminHistory();
+            loadAdminKidsConfig(); // Lädt die Kinder für Erwachsene
+        }
     });
 });
 
-// --- AUFGABEN-MANAGEMENT ---
+// --- AUFGABEN EINTRAGEN ---
 async function loadChoresCatalog() {
     const q = query(collection(db, "chores"), orderBy("points", "asc"));
     const snapshot = await getDocs(q);
@@ -161,42 +153,32 @@ async function loadChoresCatalog() {
         const el = document.createElement('div');
         el.className = 'chore-item';
         el.innerHTML = `<span class="chore-name">${chore.name}</span><span class="chore-pts">${chore.points} Pkt</span>`;
-        
         el.addEventListener('click', () => logChore(chore));
 
-        // Sortierung: 1-2 Punkte sind "Schnell", der Rest "Aufwendig"
         if(chore.points <= 2) quickGrid.appendChild(el);
         else heavyGrid.appendChild(el);
     });
 }
 
 async function logChore(chore) {
-    const now = new Date();
     const logEntry = {
-        userId: currentUserData.uid,
-        username: currentUserData.username,
-        choreName: chore.name,
-        points: Number(chore.points),
-        timestamp: now.toISOString(),
-        week: getISOWeekInfo(now).year + '-W' + getISOWeekInfo(now).week.toString().padStart(2, '0'),
-        billingMonth: getBillingMonth(now)
+        userId: currentUserData.uid, username: currentUserData.username, choreName: chore.name,
+        points: Number(chore.points), timestamp: new Date().toISOString(),
+        week: currentWeekString, billingMonth: currentBillingMonth
     };
     try {
         await addDoc(collection(db, "logs"), logEntry);
         await loadStats(); 
-    } catch (e) {
-        alert("Fehler beim Eintragen der Aufgabe!");
-    }
+    } catch (e) { alert("Fehler beim Eintragen!"); }
 }
 
-// --- STATISTIKEN & STRAF-LOGIK ---
+// --- STATISTIKEN & STRAF-LOGIK (3 von 4 oder 4 von 5) ---
 async function loadStats() {
     const qMonth = query(collection(db, "logs"), where("billingMonth", "==", currentBillingMonth));
     const snapshotMonth = await getDocs(qMonth);
     let allLogs = [];
     snapshotMonth.forEach(doc => allLogs.push({ id: doc.id, ...doc.data() }));
 
-    // Persönliche Historie (letzte 5 Einträge)
     let myLogs = allLogs.filter(log => log.userId === currentUserData.uid).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
     const histBody = document.getElementById('personal-history-body');
     histBody.innerHTML = '';
@@ -208,11 +190,8 @@ async function loadStats() {
         </tr>`;
     });
 
-    // Fortschrittsbalken und Zielprüfung (nur für Kinder-Konten)
     if(currentUserData.role === 'child') {
-        const progContainer = document.getElementById('progress-container');
-        if(progContainer) progContainer.classList.remove('hidden');
-        
+        document.getElementById('progress-container').classList.remove('hidden');
         const quota = Number(currentUserData.quota);
         document.getElementById('pts-goal').innerText = quota;
 
@@ -220,7 +199,6 @@ async function loadStats() {
         document.getElementById('pts-current').innerText = currentPts;
         document.getElementById('progress-fill').style.width = Math.min((currentPts / quota) * 100, 100) + '%';
 
-        // Prüfung der 4-von-5 Wochen-Regel
         let weeksInMonth = [...new Set(allLogs.map(l => l.week))];
         if(weeksInMonth.length === 0) weeksInMonth = [currentWeekString];
         let weeksMetTarget = 0;
@@ -228,17 +206,20 @@ async function loadStats() {
         myLogs.forEach(l => { pointsPerWeek[l.week] = (pointsPerWeek[l.week] || 0) + l.points; });
         weeksInMonth.forEach(w => { if((pointsPerWeek[w] || 0) >= quota) weeksMetTarget++; });
 
+        // EXAKTE LOGIK: 3 von 4 oder 4 von 5 Wochen müssen erreicht sein
+        let requiredWeeks = weeksInMonth.length === 5 ? 4 : 3; 
+        // Wenn der Monat extrem kurz gestartet ist (z.B. nur 1-2 Wochen alt), Warnung unterdrücken
+        if(weeksInMonth.length < 3) requiredWeeks = 0; 
+
         const alertBox = document.getElementById('alert-banner');
-        // Wenn weniger als 80% der Wochen erfüllt sind (z.B. 3 von 4 oder 4 von 5)
-        if ((weeksMetTarget / weeksInMonth.length) < 0.8 && weeksInMonth.length >= 3) {
+        if (weeksMetTarget < requiredWeeks && requiredWeeks > 0) {
             alertBox.classList.remove('hidden');
-            document.getElementById('alert-message').innerText = `⚠️ Ziel nicht erreicht! Konsequenz: ${currentUserData.penalty}`;
+            document.getElementById('alert-message').innerText = `⚠️ Achtung: Quoten-Warnung! Konsequenz: ${currentUserData.penalty}`;
         } else {
             alertBox.classList.add('hidden');
         }
     }
 
-    // Monatliches Ranking
     let ptsUser = {};
     allLogs.forEach(log => { ptsUser[log.username] = (ptsUser[log.username] || 0) + log.points; });
     let sortedUsers = Object.keys(ptsUser).sort((a,b) => ptsUser[b] - ptsUser[a]);
@@ -250,17 +231,45 @@ async function loadStats() {
     });
 }
 
-// --- ADMIN & ENTWICKLER FUNKTIONEN ---
+// --- ERWACHSENE: KINDER-LIMITS VERWALTEN ---
+async function loadAdminKidsConfig() {
+    const qKids = query(collection(db, "users"), where("role", "==", "child"));
+    const snap = await getDocs(qKids);
+    const container = document.getElementById('admin-kids-list');
+    container.innerHTML = '';
+
+    snap.forEach(docSnap => {
+        const kid = docSnap.data();
+        container.innerHTML += `
+            <div style="background: var(--bg-color); padding: 15px; margin-bottom: 10px; border-radius: 8px;">
+                <h4>${kid.username.toUpperCase()}</h4>
+                <div style="display:flex; gap:10px; margin-top:5px;">
+                    <input type="number" id="quota-${docSnap.id}" value="${kid.quota}" placeholder="Wochenziel" style="width: 80px;">
+                    <input type="text" id="penalty-${docSnap.id}" value="${kid.penalty}" placeholder="Strafe">
+                    <button class="btn-primary" onclick="updateKid('${docSnap.id}')" style="width: auto;">Speichern</button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+window.updateKid = async function(userId) {
+    const newQuota = document.getElementById(`quota-${userId}`).value;
+    const newPenalty = document.getElementById(`penalty-${userId}`).value;
+    await updateDoc(doc(db, "users", userId), { quota: Number(newQuota), penalty: newPenalty });
+    alert("Erfolgreich gespeichert!");
+};
+
+// --- LOGS LÖSCHEN ---
 window.deleteLog = async function(docId) {
-    if(confirm("Diesen Eintrag wirklich löschen?")) {
+    if(confirm("Eintrag wirklich löschen?")) {
         await deleteDoc(doc(db, "logs", docId));
         await loadStats();
-        if(currentUserData.role === 'adult' && !document.getElementById('view-admin').classList.contains('hidden')) {
+        if(currentUserData && currentUserData.role === 'adult' && !document.getElementById('view-admin').classList.contains('hidden')) {
             loadAdminHistory();
         }
     }
 }
-
 async function loadAdminHistory() {
     const qAll = query(collection(db, "logs"), orderBy("timestamp", "desc"));
     const snap = await getDocs(qAll);
@@ -277,35 +286,62 @@ async function loadAdminHistory() {
     });
 }
 
-// Neues Konto im Entwickler-Zugang erstellen
+// --- ENTWICKLER FUNKTIONEN (Aufgaben & Konten) ---
 document.getElementById('admin-user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('adm-username').value.trim().toLowerCase();
     const pwd = document.getElementById('adm-password').value;
-    
     try {
         const newCred = await createUserWithEmailAndPassword(auth, username + FAKE_DOMAIN, pwd);
         await setDoc(doc(db, "users", newCred.user.uid), {
-            username: username,
-            role: document.getElementById('adm-role').value,
-            quota: Number(document.getElementById('adm-quota').value),
-            penalty: document.getElementById('adm-penalty').value
+            username: username, role: document.getElementById('adm-role').value,
+            quota: Number(document.getElementById('adm-quota').value), penalty: document.getElementById('adm-penalty').value
         });
-        alert(`Konto für ${username} wurde erfolgreich erstellt!`);
-        e.target.reset();
-        signOut(auth); // Automatisches Ausloggen nach Erstellung
-    } catch (err) { alert("Fehler beim Erstellen des Kontos: " + err.message); }
+        alert(`Konto ${username} erstellt!`); e.target.reset(); signOut(auth);
+    } catch (err) { alert("Fehler: " + err.message); }
 });
 
-// Neuen Aufgabentyp im Entwickler-Zugang hinzufügen
 document.getElementById('admin-chore-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
         await addDoc(collection(db, "chores"), { 
-            name: document.getElementById('chore-name').value, 
-            points: Number(document.getElementById('chore-points').value) 
+            name: document.getElementById('chore-name').value, points: Number(document.getElementById('chore-points').value) 
         });
-        alert("Neue Aufgabe wurde hinzugefügt!");
         e.target.reset();
-    } catch (err) { alert("Fehler beim Speichern der Aufgabe: " + err.message); }
+        loadDevChores(); // Aktualisiert die Liste sofort
+    } catch (err) { alert("Fehler: " + err.message); }
 });
+
+async function loadDevChores() {
+    const q = query(collection(db, "chores"), orderBy("points", "asc"));
+    const snapshot = await getDocs(q);
+    const list = document.getElementById('dev-chore-list');
+    list.innerHTML = '';
+    snapshot.forEach(docSnap => {
+        const chore = docSnap.data();
+        list.innerHTML += `
+            <li style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #ccc;">
+                <span><strong>${chore.name}</strong> (${chore.points} Pkt)</span>
+                <div>
+                    <button class="btn-secondary" onclick="editChore('${docSnap.id}', '${chore.name}', ${chore.points})" style="padding:5px 10px; width:auto; font-size:0.8rem; margin-right:5px;">✏️</button>
+                    <button class="btn-delete" onclick="deleteChore('${docSnap.id}')" style="padding:5px 10px;">🗑️</button>
+                </div>
+            </li>
+        `;
+    });
+}
+
+window.deleteChore = async function(id) {
+    if(confirm("Aufgabe wirklich komplett aus dem System löschen?")) {
+        await deleteDoc(doc(db, "chores", id));
+        loadDevChores(); // Visuelles Feedback
+    }
+}
+
+window.editChore = async function(id, oldName, oldPoints) {
+    const newPoints = prompt(`Neue Punktzahl für "${oldName}" eingeben:`, oldPoints);
+    if(newPoints !== null && !isNaN(newPoints) && newPoints.trim() !== "") {
+        await updateDoc(doc(db, "chores", id), { points: Number(newPoints) });
+        loadDevChores(); // Visuelles Feedback
+    }
+}
