@@ -13,40 +13,44 @@
         <button id="theme-toggle" class="theme-btn">🌙</button>
     </nav>
 
-    <div id="login-container" class="auth-wrapper">
-        <div class="card auth-card">
-            <h1>Willkommen</h1>
-            <p>Wer ist heute fleißig?</p>
-            <form id="login-form">
-                <input type="text" id="username" placeholder="Dein Name" required>
-                <input type="password" id="password" placeholder="Passwort" required>
-                <button type="submit" class="btn-primary btn-large">Einloggen</button>
-            </form>
-            <div id="login-error" class="error-msg hidden">Falsche Daten.</div>
-            
-            <div class="dev-access-wrapper">
-                <button id="btn-show-dev-login" class="btn-text">⚙️ Entwickler-Zugang</button>
+    <div id="view-login" class="view-container">
+        <div class="auth-wrapper">
+            <div class="card auth-card">
+                <h1>Willkommen</h1>
+                <p>Wer ist heute fleißig?</p>
+                <form id="login-form">
+                    <input type="text" id="username" placeholder="Dein Name" required>
+                    <input type="password" id="password" placeholder="Passwort" required>
+                    <button type="submit" class="btn-primary btn-large">Einloggen</button>
+                </form>
+                <div id="login-error" class="error-msg hidden">Falsche Daten.</div>
+                
+                <div class="dev-access-wrapper">
+                    <button id="btn-show-dev-login" class="btn-text">⚙️ Entwickler-Zugang</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="dev-login-container" class="auth-wrapper hidden">
-        <div class="card auth-card">
-            <h2>Entwickler-Modus</h2>
-            <form id="dev-login-form">
-                <input type="password" id="dev-password" placeholder="Entwickler-Passwort" required>
-                <button type="submit" class="btn-primary">Verifizieren</button>
-                <button type="button" id="btn-cancel-dev" class="btn-text mt-10">Abbrechen</button>
-            </form>
-            <div id="dev-login-error" class="error-msg hidden">Zugriff verweigert.</div>
+    <div id="view-dev-login" class="view-container hidden">
+        <div class="auth-wrapper">
+            <div class="card auth-card">
+                <h2>Entwickler-Modus</h2>
+                <form id="dev-login-form">
+                    <input type="password" id="dev-password" placeholder="Entwickler-Passwort" required>
+                    <button type="submit" class="btn-primary">Verifizieren</button>
+                    <button type="button" id="btn-cancel-dev" class="btn-text mt-10">Abbrechen</button>
+                </form>
+                <div id="dev-login-error" class="error-msg hidden">Zugriff verweigert.</div>
+            </div>
         </div>
     </div>
 
-    <div id="dev-dashboard" class="main-layout hidden">
+    <div id="view-dev-dashboard" class="view-container hidden">
         <main class="content-area">
             <div class="section-header">
                 <h2>⚙️ System-Verwaltung</h2>
-                <button id="btn-exit-dev" class="btn-secondary">Zurück zum Login</button>
+                <button id="btn-exit-dev" class="btn-secondary" style="width: auto; padding: 10px 20px;">Zurück zum Login</button>
             </div>
             
             <div class="admin-grid">
@@ -78,7 +82,7 @@
                             <option value="4">4 Punkte (Aufwendig)</option>
                             <option value="5">5 Punkte (Schwer)</option>
                         </select>
-                        <button type="submit" class="btn-primary mt-10">Speichern</button>
+                        <button type="submit" class="btn-primary mt-10">Aufgabe Speichern</button>
                     </form>
                     
                     <h4 class="mt-30">Bestehende Aufgaben</h4>
@@ -88,73 +92,95 @@
         </main>
     </div>
 
-    <div id="dashboard-container" class="main-layout hidden">
-        <aside class="sidebar">
-            <div class="user-profile">
-                <div class="avatar" id="user-avatar">?</div>
-                <h3 id="display-name">Nutzer</h3>
-                <span id="user-role-badge" class="badge">Rolle</span>
-            </div>
-            <nav class="side-nav">
-                <button class="nav-item active" data-target="view-home">🏠 Aufgaben</button>
-                <button class="nav-item" data-target="view-stats">📊 Übersicht</button>
-                <button id="admin-nav-item" class="nav-item hidden" data-target="view-admin">🛡️ Kontrolle</button>
-            </nav>
-            <button id="logout-btn" class="btn-danger mt-10">Abmelden</button>
-        </aside>
-
-        <main class="content-area">
-            <div id="alert-banner" class="alert-box hidden"><span id="alert-message"></span></div>
-
-            <section id="view-home" class="view-section">
-                <div class="weekly-progress hidden" id="progress-container">
-                    <div class="progress-text">
-                        <span>Dein Wochenziel</span>
-                        <strong><span id="pts-current">0</span> / <span id="pts-goal">0</span> Pkt.</strong>
-                    </div>
-                    <div class="progress-bar"><div id="progress-fill" style="width: 0%"></div></div>
+    <div id="view-user-dashboard" class="view-container hidden">
+        <div class="dashboard-layout">
+            
+            <aside class="sidebar">
+                <div class="user-profile">
+                    <div class="avatar" id="user-avatar">?</div>
+                    <h3 id="display-name">Nutzer</h3>
+                    <span id="user-role-badge" class="badge">Rolle</span>
                 </div>
+                <nav class="side-nav">
+                    <button class="nav-item active" data-target="tab-home">🏠 Aufgaben</button>
+                    <button class="nav-item" data-target="tab-stats">📊 Statistiken</button>
+                    <button id="admin-nav-item" class="nav-item hidden" data-target="tab-admin">🛡️ Kontrolle</button>
+                </nav>
+                <button id="logout-btn" class="btn-danger mt-10">Abmelden</button>
+            </aside>
 
-                <div class="chores-container">
-                    <h3 class="section-title">Schnell erledigt (1-2 Pkt)</h3>
-                    <div id="list-quick-chores" class="chores-grid quick-grid"></div>
+            <main class="main-content">
+                <div id="alert-banner" class="alert-box hidden"><span id="alert-message"></span></div>
 
-                    <h3 class="section-title mt-30">Aufwendiger (3-5 Pkt)</h3>
-                    <div id="list-heavy-chores" class="chores-grid heavy-grid"></div>
-                </div>
-            </section>
-
-            <section id="view-stats" class="view-section hidden">
-                <h2>Statistiken & Ranking</h2>
-                <div class="ranking-container card mb-20">
-                    <h3>🏆 Bestenliste (Aktueller Monat)</h3>
-                    <ol id="leaderboard-list" class="leaderboard"></ol>
-                </div>
-                <div class="card">
-                    <h3>Deine letzten Einträge</h3>
-                    <table class="data-table">
-                        <tbody id="personal-history-body"></tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section id="view-admin" class="view-section hidden">
-                <h2>Verwaltung & Kontrolle</h2>
-                
-                <div class="card mb-20">
-                    <h3>👧👦 Kinder-Limits verwalten</h3>
-                    <div id="admin-kids-list">
+                <section id="tab-home" class="tab-section">
+                    <div class="weekly-progress hidden" id="progress-container">
+                        <div class="progress-text">
+                            <span>Dein Wochenziel</span>
+                            <strong><span id="pts-current">0</span> / <span id="pts-goal">0</span> Pkt.</strong>
                         </div>
-                </div>
+                        <div class="progress-bar"><div id="progress-fill" style="width: 0%"></div></div>
+                    </div>
 
-                <div class="card mt-10">
-                    <h3>Familien-Protokoll (Löschen)</h3>
-                    <table class="data-table">
-                        <tbody id="admin-history-body"></tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
+                    <div class="chores-container">
+                        <h3 class="section-title">Schnell erledigt (1-2 Pkt)</h3>
+                        <div id="list-quick-chores" class="chores-grid quick-grid"></div>
+
+                        <h3 class="section-title mt-30">Aufwendiger (3-5 Pkt)</h3>
+                        <div id="list-heavy-chores" class="chores-grid heavy-grid"></div>
+                    </div>
+                </section>
+
+                <section id="tab-stats" class="tab-section hidden">
+                    <h2>Statistiken & Ranking</h2>
+                    <div class="ranking-container card mb-20">
+                        <h3>🏆 Bestenliste (Aktueller Monat)</h3>
+                        <ol id="leaderboard-list" class="leaderboard"></ol>
+                    </div>
+                    <div class="card">
+                        <h3>Deine Historie</h3>
+                        <table class="data-table">
+                            <tbody id="personal-history-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="tab-admin" class="tab-section hidden">
+                    <h2>Verwaltung & Kontrolle</h2>
+                    
+                    <div class="admin-grid mb-20">
+                        <div class="card">
+                            <h3>✍️ Aufgabe nachtragen</h3>
+                            <p class="text-muted">Hat jemand vergessen etwas einzutragen?</p>
+                            <form id="adult-override-form">
+                                <select id="override-user" required><option value="">Familienmitglied wählen...</option></select>
+                                <select id="override-chore" required><option value="">Aufgabe wählen...</option></select>
+                                <button type="submit" class="btn-primary mt-10">Für diese Person eintragen</button>
+                            </form>
+                        </div>
+                        
+                        <div class="card">
+                            <h3>👧👦 Kinder-Limits anpassen</h3>
+                            <div id="admin-kids-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-10">
+                        <h3>Familien-Protokoll (Manuelles Löschen)</h3>
+                        <table class="data-table">
+                            <tbody id="admin-history-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+
+            <aside class="right-sidebar">
+                <h3>🕒 3-Tages-Check</h3>
+                <p class="text-muted" style="margin-top:-10px; margin-bottom:15px;">Wer hat zuletzt was gemacht?</p>
+                <div id="recent-logs-feed" class="feed-container">
+                    </div>
+            </aside>
+
+        </div>
     </div>
 
     <script type="module" src="app.js"></script>
