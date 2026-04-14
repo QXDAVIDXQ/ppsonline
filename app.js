@@ -3,6 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
+// HIER DEINE FIREBASE DATEN EINTRAGEN:
 const firebaseConfig = {
   apiKey: "AIzaSyDJyPP0XNh4SZxfT4EWZQPX2jtK-8M0tqU",
   authDomain: "ppsonline-648ba.firebaseapp.com",
@@ -17,6 +18,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 let currentUserData = null;
+let isDevModeActive = false; // Verhindert UI-Bugs
 const FAKE_DOMAIN = "@familiensystem.local";
 
 // --- KALENDER LOGIK ---
@@ -25,59 +27,55 @@ function getISOWeekInfo(date) {
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return { year: d.getUTCFullYear(), week: weekNo };
+    return { year: d.getUTCFullYear(), week: Math.ceil((((d - yearStart) / 86400000) + 1) / 7) };
 }
 function getBillingMonth(date) {
     const d = new Date(date);
-    const day = d.getDay();
-    const diffToSunday = day === 0 ? 0 : 7 - day;
-    const sunday = new Date(d.setDate(d.getDate() + diffToSunday));
+    const sunday = new Date(d.setDate(d.getDate() + (d.getDay() === 0 ? 0 : 7 - d.getDay())));
     return `${sunday.getFullYear()}-${(sunday.getMonth() + 1).toString().padStart(2, '0')}`;
 }
-const currentDate = new Date();
-const currentWeekString = `${getISOWeekInfo(currentDate).year}-W${getISOWeekInfo(currentDate).week.toString().padStart(2, '0')}`;
-const currentBillingMonth = getBillingMonth(currentDate);
+const currentWeekString = `${getISOWeekInfo(new Date()).year}-W${getISOWeekInfo(new Date()).week.toString().padStart(2, '0')}`;
+const currentBillingMonth = getBillingMonth(new Date());
 
-// --- UI ELEMENTE ---
-const loginContainer = document.getElementById('login-container');
-const devLoginContainer = document.getElementById('dev-login-container');
-const devDashboard = document.getElementById('dev-dashboard');
-const dashboardContainer = document.getElementById('dashboard-container');
+// --- UI ANSICHTEN STEUERUNG (Das behebt den Overlap-Bug!) ---
+function switchView(targetViewId) {
+    const views = ['view-login', 'view-dev-login', 'view-dev-dashboard', 'view-user-dashboard'];
+    views.forEach(v => document.getElementById(v).classList.add('hidden'));
+    document.getElementById(targetViewId).classList.remove('hidden');
+}
 
+// Dark Mode
 document.getElementById('theme-toggle').addEventListener('click', () => {
     const isDark = document.body.getAttribute('data-theme') === 'dark';
     document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
 });
 
 // --- ENTWICKLER ZUGANG ---
-document.getElementById('btn-show-dev-login').addEventListener('click', () => {
-    loginContainer.classList.add('hidden');
-    devLoginContainer.classList.remove('hidden');
-});
-document.getElementById('btn-cancel-dev').addEventListener('click', () => {
-    devLoginContainer.classList.add('hidden');
-    loginContainer.classList.remove('hidden');
-    document.getElementById('dev-login-error').classList.add('hidden');
-});
+document.getElementById('btn-show-dev-login').addEventListener('click', () => switchView('view-dev-login'));
+document.getElementById('btn-cancel-dev').addEventListener('click', () => switchView('view-login'));
+
 document.getElementById('dev-login-form').addEventListener('submit', (e) => {
     e.preventDefault();
     if (document.getElementById('dev-password').value === 'ppsgeheim') {
-        devLoginContainer.classList.add('hidden');
-        devDashboard.classList.remove('hidden');
+        isDevModeActive = true;
         document.getElementById('dev-password').value = '';
-        loadDevChores(); // Aufgaben für Entwickler laden
+        switchView('view-dev-dashboard');
+        loadDevChores();
     } else {
         document.getElementById('dev-login-error').classList.remove('hidden');
     }
 });
+
 document.getElementById('btn-exit-dev').addEventListener('click', () => {
-    devDashboard.classList.add('hidden');
-    loginContainer.classList.remove('hidden');
+    isDevModeActive = false;
+    switchView('view-login');
 });
 
-// --- LOGIN ---
+// --- LOGIN & AUTH STATUS ---
 onAuthStateChanged(auth, async (user) => {
+    // Wenn Entwickler-Modus an ist, ignorieren wir Firebase-Auto-Logins, um das UI nicht zu zerschießen!
+    if (isDevModeActive) return; 
+
     if (user) {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
@@ -86,12 +84,10 @@ onAuthStateChanged(auth, async (user) => {
         }
     } else {
         currentUserData = null;
-        dashboardContainer.classList.add('hidden');
-        devDashboard.classList.add('hidden');
-        devLoginContainer.classList.add('hidden');
-        loginContainer.classList.remove('hidden');
+        switchView('view-login');
     }
 });
+
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value.trim().toLowerCase();
@@ -105,11 +101,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 });
 document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
-// --- DASHBOARD ---
+// --- NUTZER DASHBOARD INIT ---
 async function initDashboard() {
-    loginContainer.classList.add('hidden');
-    dashboardContainer.classList.remove('hidden');
-    
+    switchView('view-user-dashboard');
     document.getElementById('display-name').innerText = currentUserData.username.toUpperCase();
     document.getElementById('user-avatar').innerText = currentUserData.username.charAt(0).toUpperCase();
     document.getElementById('user-role-badge').innerText = currentUserData.role === 'adult' ? 'Verwalter' : 'Kind';
@@ -121,28 +115,32 @@ async function initDashboard() {
     }
 
     await loadChoresCatalog();
-    await loadStats(); 
+    await loadStatsAndFeed(); 
 }
 
+// Tabs im Dashboard
 document.querySelectorAll('.side-nav .nav-item').forEach(btn => {
     btn.addEventListener('click', (e) => {
         document.querySelectorAll('.side-nav .nav-item').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
         const targetId = e.target.getAttribute('data-target');
-        document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
+        document.querySelectorAll('.tab-section').forEach(sec => sec.classList.add('hidden'));
         document.getElementById(targetId).classList.remove('hidden');
         
-        if(targetId === 'view-admin') {
+        if(targetId === 'tab-admin') {
             loadAdminHistory();
-            loadAdminKidsConfig(); // Lädt die Kinder für Erwachsene
+            loadAdultConfig();
         }
     });
 });
 
-// --- AUFGABEN EINTRAGEN ---
+// --- AUFGABEN KATALOG & EINTRAGEN ---
+let globalChoresCache = []; // Speichert Aufgaben für das Erwachsenen-Dropdown
+
 async function loadChoresCatalog() {
     const q = query(collection(db, "chores"), orderBy("points", "asc"));
     const snapshot = await getDocs(q);
+    globalChoresCache = [];
     
     const quickGrid = document.getElementById('list-quick-chores');
     const heavyGrid = document.getElementById('list-heavy-chores');
@@ -150,46 +148,69 @@ async function loadChoresCatalog() {
 
     snapshot.forEach(docSnap => {
         const chore = { id: docSnap.id, ...docSnap.data() };
+        globalChoresCache.push(chore);
         const el = document.createElement('div');
         el.className = 'chore-item';
         el.innerHTML = `<span class="chore-name">${chore.name}</span><span class="chore-pts">${chore.points} Pkt</span>`;
-        el.addEventListener('click', () => logChore(chore));
+        el.addEventListener('click', () => logChore(chore.name, chore.points, currentUserData.uid, currentUserData.username));
 
         if(chore.points <= 2) quickGrid.appendChild(el);
         else heavyGrid.appendChild(el);
     });
 }
 
-async function logChore(chore) {
+// Die eigentliche Eintragen-Funktion
+async function logChore(choreName, chorePoints, targetUid, targetUsername) {
     const logEntry = {
-        userId: currentUserData.uid, username: currentUserData.username, choreName: chore.name,
-        points: Number(chore.points), timestamp: new Date().toISOString(),
+        userId: targetUid, username: targetUsername, choreName: choreName,
+        points: Number(chorePoints), timestamp: new Date().toISOString(),
         week: currentWeekString, billingMonth: currentBillingMonth
     };
     try {
         await addDoc(collection(db, "logs"), logEntry);
-        await loadStats(); 
+        await loadStatsAndFeed(); 
+        alert("Wurde eingetragen!");
     } catch (e) { alert("Fehler beim Eintragen!"); }
 }
 
-// --- STATISTIKEN & STRAF-LOGIK (3 von 4 oder 4 von 5) ---
-async function loadStats() {
-    const qMonth = query(collection(db, "logs"), where("billingMonth", "==", currentBillingMonth));
-    const snapshotMonth = await getDocs(qMonth);
+// --- STATISTIKEN, STRAFEN & 3-TAGES-FEED ---
+async function loadStatsAndFeed() {
+    const qAll = query(collection(db, "logs"), orderBy("timestamp", "desc"));
+    const snapshotAll = await getDocs(qAll);
     let allLogs = [];
-    snapshotMonth.forEach(doc => allLogs.push({ id: doc.id, ...doc.data() }));
+    snapshotAll.forEach(doc => allLogs.push({ id: doc.id, ...doc.data() }));
 
-    let myLogs = allLogs.filter(log => log.userId === currentUserData.uid).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // 1. Der 3-Tages-Feed (Rechte Seitenleiste)
+    const feedContainer = document.getElementById('recent-logs-feed');
+    feedContainer.innerHTML = '';
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    allLogs.filter(l => new Date(l.timestamp) >= threeDaysAgo).slice(0, 15).forEach(log => {
+        const d = new Date(log.timestamp);
+        const timeStr = d.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'});
+        // Farbklasse je nach Punkten
+        let colorClass = `color-pt-${Math.min(log.points, 5)}`; 
+        feedContainer.innerHTML += `
+            <div class="feed-item ${colorClass}">
+                <div><strong>${log.username.toUpperCase()}</strong>: ${log.choreName}</div>
+                <div class="feed-time">${timeStr}</div>
+            </div>
+        `;
+    });
+
+    // 2. Persönliche Historie
+    let myLogs = allLogs.filter(log => log.userId === currentUserData.uid);
     const histBody = document.getElementById('personal-history-body');
     histBody.innerHTML = '';
     myLogs.slice(0, 5).forEach(log => {
-        const d = new Date(log.timestamp);
         histBody.innerHTML += `<tr>
             <td><strong>${log.choreName}</strong> <span class="text-muted">(${log.points} Pkt)</span></td>
             <td style="text-align:right"><button class="btn-delete" onclick="deleteLog('${log.id}')">Löschen</button></td>
         </tr>`;
     });
 
+    // 3. Fortschritt (Kinder)
     if(currentUserData.role === 'child') {
         document.getElementById('progress-container').classList.remove('hidden');
         const quota = Number(currentUserData.quota);
@@ -199,29 +220,31 @@ async function loadStats() {
         document.getElementById('pts-current').innerText = currentPts;
         document.getElementById('progress-fill').style.width = Math.min((currentPts / quota) * 100, 100) + '%';
 
-        let weeksInMonth = [...new Set(allLogs.map(l => l.week))];
+        let monthLogs = allLogs.filter(l => l.billingMonth === currentBillingMonth);
+        let weeksInMonth = [...new Set(monthLogs.map(l => l.week))];
         if(weeksInMonth.length === 0) weeksInMonth = [currentWeekString];
         let weeksMetTarget = 0;
         let pointsPerWeek = {};
         myLogs.forEach(l => { pointsPerWeek[l.week] = (pointsPerWeek[l.week] || 0) + l.points; });
         weeksInMonth.forEach(w => { if((pointsPerWeek[w] || 0) >= quota) weeksMetTarget++; });
 
-        // EXAKTE LOGIK: 3 von 4 oder 4 von 5 Wochen müssen erreicht sein
         let requiredWeeks = weeksInMonth.length === 5 ? 4 : 3; 
-        // Wenn der Monat extrem kurz gestartet ist (z.B. nur 1-2 Wochen alt), Warnung unterdrücken
         if(weeksInMonth.length < 3) requiredWeeks = 0; 
 
         const alertBox = document.getElementById('alert-banner');
         if (weeksMetTarget < requiredWeeks && requiredWeeks > 0) {
             alertBox.classList.remove('hidden');
-            document.getElementById('alert-message').innerText = `⚠️ Achtung: Quoten-Warnung! Konsequenz: ${currentUserData.penalty}`;
+            document.getElementById('alert-message').innerText = `⚠️ Ziel nicht erreicht! Konsequenz: ${currentUserData.penalty}`;
         } else {
             alertBox.classList.add('hidden');
         }
     }
 
+    // 4. Ranking
     let ptsUser = {};
-    allLogs.forEach(log => { ptsUser[log.username] = (ptsUser[log.username] || 0) + log.points; });
+    allLogs.filter(l => l.billingMonth === currentBillingMonth).forEach(log => { 
+        ptsUser[log.username] = (ptsUser[log.username] || 0) + log.points; 
+    });
     let sortedUsers = Object.keys(ptsUser).sort((a,b) => ptsUser[b] - ptsUser[a]);
     const lb = document.getElementById('leaderboard-list');
     lb.innerHTML = '';
@@ -231,45 +254,71 @@ async function loadStats() {
     });
 }
 
-// --- ERWACHSENE: KINDER-LIMITS VERWALTEN ---
-async function loadAdminKidsConfig() {
-    const qKids = query(collection(db, "users"), where("role", "==", "child"));
+
+// --- ERWACHSENE: KONTROLLE & NACHTRAGEN ---
+async function loadAdultConfig() {
+    const qKids = query(collection(db, "users"));
     const snap = await getDocs(qKids);
     const container = document.getElementById('admin-kids-list');
-    container.innerHTML = '';
-
+    const userSelect = document.getElementById('override-user');
+    const choreSelect = document.getElementById('override-chore');
+    
+    container.innerHTML = ''; userSelect.innerHTML = '<option value="">Familienmitglied wählen...</option>';
+    
+    // Dropdowns füllen
     snap.forEach(docSnap => {
-        const kid = docSnap.data();
-        container.innerHTML += `
-            <div style="background: var(--bg-color); padding: 15px; margin-bottom: 10px; border-radius: 8px;">
-                <h4>${kid.username.toUpperCase()}</h4>
-                <div style="display:flex; gap:10px; margin-top:5px;">
-                    <input type="number" id="quota-${docSnap.id}" value="${kid.quota}" placeholder="Wochenziel" style="width: 80px;">
-                    <input type="text" id="penalty-${docSnap.id}" value="${kid.penalty}" placeholder="Strafe">
-                    <button class="btn-primary" onclick="updateKid('${docSnap.id}')" style="width: auto;">Speichern</button>
+        const user = {id: docSnap.id, ...docSnap.data()};
+        userSelect.innerHTML += `<option value="${user.id}|${user.username}">${user.username.toUpperCase()}</option>`;
+        
+        if(user.role === 'child') {
+            container.innerHTML += `
+                <div style="background: var(--bg-color); padding: 15px; margin-bottom: 10px; border-radius: 8px;">
+                    <h4>${user.username.toUpperCase()}</h4>
+                    <div style="display:flex; gap:10px; margin-top:5px;">
+                        <input type="number" id="quota-${user.id}" value="${user.quota}" placeholder="Wochenziel" style="width: 100px; margin:0;">
+                        <input type="text" id="penalty-${user.id}" value="${user.penalty}" placeholder="Strafe" style="margin:0;">
+                        <button class="btn-primary" onclick="updateKid('${user.id}')" style="width: auto;">Speichern</button>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
+    });
+
+    choreSelect.innerHTML = '<option value="">Aufgabe wählen...</option>';
+    globalChoresCache.forEach(c => {
+        choreSelect.innerHTML += `<option value="${c.name}|${c.points}">${c.name} (${c.points} Pkt)</option>`;
     });
 }
+
+// Aufgabe für andere eintragen
+document.getElementById('adult-override-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const userVals = document.getElementById('override-user').value.split('|'); // [uid, username]
+    const choreVals = document.getElementById('override-chore').value.split('|'); // [name, points]
+    if(userVals.length===2 && choreVals.length===2) {
+        await logChore(choreVals[0], choreVals[1], userVals[0], userVals[1]);
+        e.target.reset();
+        loadAdminHistory();
+    }
+});
 
 window.updateKid = async function(userId) {
     const newQuota = document.getElementById(`quota-${userId}`).value;
     const newPenalty = document.getElementById(`penalty-${userId}`).value;
     await updateDoc(doc(db, "users", userId), { quota: Number(newQuota), penalty: newPenalty });
-    alert("Erfolgreich gespeichert!");
+    alert("Limit erfolgreich aktualisiert!");
 };
 
-// --- LOGS LÖSCHEN ---
 window.deleteLog = async function(docId) {
     if(confirm("Eintrag wirklich löschen?")) {
         await deleteDoc(doc(db, "logs", docId));
-        await loadStats();
-        if(currentUserData && currentUserData.role === 'adult' && !document.getElementById('view-admin').classList.contains('hidden')) {
+        await loadStatsAndFeed();
+        if(currentUserData && currentUserData.role === 'adult' && !document.getElementById('tab-admin').classList.contains('hidden')) {
             loadAdminHistory();
         }
     }
 }
+
 async function loadAdminHistory() {
     const qAll = query(collection(db, "logs"), orderBy("timestamp", "desc"));
     const snap = await getDocs(qAll);
@@ -286,18 +335,23 @@ async function loadAdminHistory() {
     });
 }
 
-// --- ENTWICKLER FUNKTIONEN (Aufgaben & Konten) ---
+// --- ENTWICKLER: KONTEN & AUFGABEN VERWALTEN ---
 document.getElementById('admin-user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('adm-username').value.trim().toLowerCase();
     const pwd = document.getElementById('adm-password').value;
     try {
+        // Firebase Auth erstellen
         const newCred = await createUserWithEmailAndPassword(auth, username + FAKE_DOMAIN, pwd);
+        // Da Entwickler-Modus aktiv ist, stört uns das automatische Login nicht.
+        // Wir speichern die Daten und loggen den unsichtbaren Auth-User sofort wieder aus.
         await setDoc(doc(db, "users", newCred.user.uid), {
             username: username, role: document.getElementById('adm-role').value,
             quota: Number(document.getElementById('adm-quota').value), penalty: document.getElementById('adm-penalty').value
         });
-        alert(`Konto ${username} erstellt!`); e.target.reset(); signOut(auth);
+        await signOut(auth); // Verhindert Geister-Sessions
+        alert(`Erfolg: Konto ${username} wurde erstellt!`);
+        e.target.reset();
     } catch (err) { alert("Fehler: " + err.message); }
 });
 
@@ -307,8 +361,9 @@ document.getElementById('admin-chore-form').addEventListener('submit', async (e)
         await addDoc(collection(db, "chores"), { 
             name: document.getElementById('chore-name').value, points: Number(document.getElementById('chore-points').value) 
         });
+        alert("Neue Aufgabe gespeichert!");
         e.target.reset();
-        loadDevChores(); // Aktualisiert die Liste sofort
+        loadDevChores(); 
     } catch (err) { alert("Fehler: " + err.message); }
 });
 
@@ -320,11 +375,11 @@ async function loadDevChores() {
     snapshot.forEach(docSnap => {
         const chore = docSnap.data();
         list.innerHTML += `
-            <li style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #ccc;">
+            <li>
                 <span><strong>${chore.name}</strong> (${chore.points} Pkt)</span>
                 <div>
-                    <button class="btn-secondary" onclick="editChore('${docSnap.id}', '${chore.name}', ${chore.points})" style="padding:5px 10px; width:auto; font-size:0.8rem; margin-right:5px;">✏️</button>
-                    <button class="btn-delete" onclick="deleteChore('${docSnap.id}')" style="padding:5px 10px;">🗑️</button>
+                    <button class="btn-edit" onclick="editChore('${docSnap.id}', '${chore.name}', ${chore.points})">✏️ Bearbeiten</button>
+                    <button class="btn-delete" onclick="deleteChore('${docSnap.id}')">🗑️ Löschen</button>
                 </div>
             </li>
         `;
@@ -332,16 +387,20 @@ async function loadDevChores() {
 }
 
 window.deleteChore = async function(id) {
-    if(confirm("Aufgabe wirklich komplett aus dem System löschen?")) {
+    if(confirm("Aufgabe wirklich aus dem System löschen?")) {
         await deleteDoc(doc(db, "chores", id));
-        loadDevChores(); // Visuelles Feedback
+        alert("Gelöscht!");
+        loadDevChores(); 
     }
 }
 
 window.editChore = async function(id, oldName, oldPoints) {
-    const newPoints = prompt(`Neue Punktzahl für "${oldName}" eingeben:`, oldPoints);
+    const newName = prompt(`Neuer Name für die Aufgabe:`, oldName);
+    if(newName === null || newName.trim() === "") return;
+    const newPoints = prompt(`Neue Punktzahl für "${newName}":`, oldPoints);
     if(newPoints !== null && !isNaN(newPoints) && newPoints.trim() !== "") {
-        await updateDoc(doc(db, "chores", id), { points: Number(newPoints) });
-        loadDevChores(); // Visuelles Feedback
+        await updateDoc(doc(db, "chores", id), { name: newName, points: Number(newPoints) });
+        alert("Erfolgreich geändert!");
+        loadDevChores();
     }
 }
